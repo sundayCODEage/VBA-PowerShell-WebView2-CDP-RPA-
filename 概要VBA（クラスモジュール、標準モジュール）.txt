@@ -1,0 +1,263 @@
+概要VBA
+●クラスモジュール（名前：Ps_Engine）
+
+Option Explicit
+
+' --- API宣言 ---
+Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)
+Private Declare PtrSafe Function GetTickCount Lib "kernel32" () As Long ' 日跨ぎ防止用API
+' --- グローバル定数および変数定義 ---
+Private Const PS_TIMEOUT_SEC    As Integer = 30
+Private Const PS_READ_RETRY_MS  As Integer = 50 ' CPU負荷と通信レスポンスの最適化を目的とした待機ミリ秒数 (50ms)
+Private psProcess   As Object
+Private m_IsBusy    As Boolean ' 実行中フラグ
+
+' --- プロパティ ---
+Public Property Get IsBusy() As Boolean
+    IsBusy = m_IsBusy
+End Property
+
+' --- インスタンス破棄時の安全な終了処理 ---
+Private Sub Class_Terminate()
+    On Error Resume Next
+    If Not psProcess Is Nothing Then
+        Me.RunAction "Quit", Nothing
+        psProcess.Terminate
+        Set psProcess = Nothing
+        Debug.Print "[PS_Engine] Process Terminated."
+    End If
+End Sub
+
+' --- PowerShellプロセスの非同期起動および初期化待機 ---
+Public Function StartEngine(sessionId As String, enginePath As String, Optional cdpPort As Integer = 0, Optional isDebugMode As Boolean = False) As Boolean
+    Dim shellObj As Object
+    Dim cmd As String
+    Dim line As String
+    Dim psDebugFlag As String
+    
+    If isDebugMode Then psDebugFlag = "true" Else psDebugFlag = "false"
+    
+    On Error GoTo Catch
+    Set shellObj = CreateObject("WScript.Shell")
+
+''' cmd = "powershell.exe -STA                 -NoProfile -ExecutionPolicy Bypass -File """ & enginePath & """ -AppSessionId """ & sessionId & """ -CdpPort " & cdpPort & " -IsDebugModeFlg " & psDebugFlag
+    cmd = "powershell.exe -STA -NonInteractive -NoProfile -ExecutionPolicy Bypass -File """ & enginePath & """ -AppSessionId """ & sessionId & """ -CdpPort " & cdpPort & " -IsDebugModeFlg " & psDebugFlag
+    Set psProcess = shellObj.exec(cmd)
+    
+    Do While Not psProcess.StdOut.AtEndOfStream
+        line = psProcess.StdOut.ReadLine()
+        Debug.Print "PS_Init: " & line
+        If InStr(line, "READY") > 0 Then
+            StartEngine = True
+            Exit Function
+        End If
+        DoEvents
+    Loop
+
+Catch:
+    StartEngine = False
+End Function
+
+' --- アクションコマンドのJSONペイロード化および送信 ---
+Public Function RunAction(cmdName As String, Optional dictParams As Scripting.Dictionary = Nothing) As String
+    Dim jsonPayload As String
+    If psProcess Is Nothing Then Exit Function
+    
+    m_IsBusy = True ' 実行中ロック開始
+    
+    jsonPayload = BuildPayload(cmdName, dictParams)
+    RunAction = SendAndReceive(jsonPayload)
+    
+    m_IsBusy = False ' 実行中ロック解除
+End Function
+
+' --- コマンドおよびパラメータのJSONペイロード構築 ---
+Private Function BuildPayload(cmdName As String, dictParams As Scripting.Dictionary) As String
+    Dim root As New Scripting.Dictionary
+    Dim settings As New Scripting.Dictionary
+    
+    root.Add "Command", cmdName
+    If dictParams Is Nothing Then
+        root.Add "Parameters", New Scripting.Dictionary
+    Else
+        root.Add "Parameters", dictParams
+    End If
+    
+    settings.Add "TimeoutSec", PS_TIMEOUT_SEC
+    root.Add "Settings", settings
+    
+    ' VBA-JSONによる安全なJSON文字列への自動変換
+    BuildPayload = JsonConverter.ConvertToJson(root)
+End Function
+
+' --- 標準入出力パイプを介したJSONの送受信およびタイムアウト監視 ---
+Private Function SendAndReceive(jsonStr As String) As String
+    Dim line As String
+    Dim capturedResult As String
+    Dim startTick As Long
+    
+    Debug.Print "VBA -> PS: " & jsonStr
+    
+    ' PowerShellへのコマンド送信
+    psProcess.StdIn.WriteLine jsonStr
+    
+    ' 監視開始時刻の記録 (GetTickCountを使用)
+    startTick = GetTickCount()
+    
+    ' 応答待ちループ
+    Do While True
+        ' 1. プロセスの生存確認（クラッシュ検知）
+        If psProcess.Status <> 0 Then
+            m_IsBusy = False
+            Err.Raise 998, "PS_Engine", "PowerShellプロセスが予期せず終了"
+            Exit Function
+        End If
+
+        ' 2. タイムアウト判定 (ミリ秒単位で比較、日跨ぎバグを回避)
+        If (GetTickCount() - startTick) > (PS_TIMEOUT_SEC * 1000&) Then
+            Me.CloseEngine
+            m_IsBusy = False
+            Err.Raise 997, "PS_Engine", "PowerShell応答タイムアウト (" & PS_TIMEOUT_SEC & "秒)"
+            Exit Function
+        End If
+
+        ' 3. 標準出力の読み取りと内容解析
+        If Not psProcess.StdOut.AtEndOfStream Then
+            line = psProcess.StdOut.ReadLine()
+            
+            If Left(line, 8) = "[RESULT]" Then
+                capturedResult = Mid(line, 9)
+            ElseIf Left(line, 9) = "[SUCCESS]" Then
+                SendAndReceive = capturedResult
+                Exit Function
+            ElseIf Left(line, 7) = "[ERROR]" Then
+                m_IsBusy = False
+                Err.Raise 999, "PS_Engine", Trim(Mid(line, 8))
+                Exit Function
+            Else
+                Debug.Print "PS_STDOUT: " & line
+            End If
+        End If
+        
+        DoEvents
+        Sleep PS_READ_RETRY_MS
+    Loop
+End Function
+
+' --- PowerShellエンジンの明示的なシャットダウン処理 ---
+Public Sub CloseEngine()
+    On Error Resume Next
+    If Not psProcess Is Nothing Then
+        psProcess.StdIn.WriteLine "{""Command"":""Quit""}"
+        Sleep 500
+        psProcess.Terminate
+        Set psProcess = Nothing
+        Debug.Print "[PS_Engine] Engine Closed explicitly."
+    End If
+End Sub
+
+●標準モジュール（VBA-JSON v2.3.1）
+　JSON Converter for VBA　のダウンロードをお願いします。
+
+●標準モジュール（共通）
+Option Explicit
+
+' --- 特定のウィンドウを最前面に移動させる ---
+Private Declare PtrSafe Function SetForegroundWindow Lib "user32" (ByVal hwnd As LongPtr) As Long
+Private Declare PtrSafe Function IsIconic Lib "user32" (ByVal hwnd As LongPtr) As Long
+Private Declare PtrSafe Function ShowWindow Lib "user32" (ByVal hwnd As LongPtr, ByVal nCmdShow As Long) As Long
+Private Const SW_RESTORE As Long = 9
+    
+' --- 例外情報を格納する構造体 ---
+Public Type RpaExceptionInfo
+    HasError As Boolean
+    FunctionName As String
+    ErrorType As String
+    Message As String
+    Details As String
+    RawText As String
+End Type
+    
+' --- 可変長引数(ParamArray)からのDictionary生成 ---
+Public Function CreateParams(ParamArray args() As Variant) As Scripting.Dictionary
+    Dim dict As New Scripting.Dictionary
+    Dim i As Integer
+    
+    ' 引数のペア不一致判定
+    If (UBound(args) - LBound(args) + 1) Mod 2 <> 0 Then
+        Set CreateParams = dict
+        Exit Function
+    End If
+    
+    ' キーと値のペア登録
+    For i = LBound(args) To UBound(args) - 1 Step 2
+        dict.Add CStr(args(i)), args(i + 1)
+    Next i
+    
+    Set CreateParams = dict
+End Function
+
+' --- PowerShellのエラー文字列を構造体にパースする関数 ---
+Public Function ParseRpaError(ByVal errString As String) As RpaExceptionInfo
+    Dim result As RpaExceptionInfo
+    result.HasError = False
+    result.RawText = errString
+    
+    ' 正規表現オブジェクトの生成（遅延バインディング）
+    Dim regEx As Object
+    Set regEx = CreateObject("VBScript.RegExp")
+    
+    ' パターン: [関数名] [種別]: メッセージ (詳細)
+    ' ※詳細は省略される場合があるため、末尾の括弧はオプショナル(?: \((.*)\))?とする
+    regEx.Pattern = "^\[(.*?)\] \[(.*?)\]:\s*(.*?)(?:\s*\((.*)\))?$"
+    regEx.IgnoreCase = True
+    regEx.Global = False
+    
+    Dim matches As Object
+    Set matches = regEx.Execute(errString)
+    
+    If matches.Count > 0 Then
+        Dim subMatches As Object
+        Set subMatches = matches(0).subMatches
+        
+        result.HasError = True
+        result.FunctionName = subMatches(0)
+        result.ErrorType = subMatches(1)
+        result.Message = subMatches(2)
+        
+        ' 詳細情報（Details）が存在する場合のみ取得
+        If subMatches.Count > 3 Then
+            result.Details = subMatches(3)
+        End If
+    Else
+        ' フォーマット外の予期せぬエラーの場合（フォールバック）
+        result.HasError = True
+        result.FunctionName = "Unknown"
+        result.ErrorType = "内部エラー"
+        result.Message = errString
+    End If
+    
+    ParseRpaError = result
+End Function
+
+' --- Excelを強制的に最前面に持ってくる関数 ---
+Public Sub ForceFocusExcel()
+    Dim hwnd As LongPtr
+    hwnd = Application.hwnd
+    
+    ' Excelが最小化されている場合は元に戻す
+    If IsIconic(hwnd) Then
+        ShowWindow hwnd, SW_RESTORE
+    End If
+    
+    ' 最前面に移動
+    SetForegroundWindow hwnd
+    ' VBAのAppActivateも併用（念のため）
+    AppActivate Application.Caption
+End Sub
+
+
+
+
+
+
