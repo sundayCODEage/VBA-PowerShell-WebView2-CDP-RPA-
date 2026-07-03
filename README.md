@@ -43,6 +43,35 @@ OSレベルに近いネイティブなマウス/キーボードイベントを�
 #### (1) システムアーキテクチャとハイブリッド連携原理<br>
 本エンジンは、Microsoft EdgeのレンダリングコアであるWebView2（Chromiumベース）をスタンドアロンのデスクトップUI（WinForms）に埋め込み、「Native（JSインジェクション）」と「CDP（WebSocket経由のデバッガ制御）」の2つの通信経路を状況に応じて切り替えるハイブリッドアーキテクチャを採用しています。
 
+1.1 動作機構の概要図
+<pre style="font-family: 'Consolas', 'Courier New', monospace; font-size: 14px;">
+　　　　　+-------------------------------------------------------------+
+　　　　　|                     VBA (Excel)                             |
+　　　　　|  - コマンド送信 (StdIn.WriteLine JSONPayload)                |
+　　　　　|  - 応答待ちループ (DoEvents / タイムアウト・死活監視)          |
+　　　　　+------------------------------+------------------------------+
+　　　　　                               | (標準入出力パイプ)
+　　　　　                               v
+　　　　　+-------------------------------------------------------------+
+　　　　　|              PowerShell 5.1 (Ps_Engine_Core)                |
+　　　　　|  - 動的ルーティング (& $method @parameters)                  |
+　　　　　|  - [RESULT], [SUCCESS], [ERROR] プレフィックス制御           |
+　　　　　+------------------------------+------------------------------+
+　　　　　                               | (ドットソース結合モジュール群)
+　　　　　                               v
+　　　　　+-------------------------------------------------------------+
+　　　　　|                 WebView2 フォーム・ブラウザコア               |
+　　　　　+-------------------------------------------------------------+
+　　　　　       |                                             |
+　　　　　       | (経路A: Native制御)                          | (経路B: CDP制御)
+　　　　　       | - ExecuteScriptAsync                        | - WebSocket通信
+　　　　　       | - 標準DOM API (querySelector等)             | - 9222等のデバッグポート経由
+　　　　　       v                                             v
+　　　　　+-------------------------------------------------------------+
+　　　　　|                 ターゲットWebページ (DOM / iframe)           |
+　　　　　+-------------------------------------------------------------+
+</pre>
+
 (1.2) 役割分担と透過的アクセス機構<br>
 •	WebView2 (Native) の役割: DOMレンダリング、セッション管理、UI表示、および標準のJSインジェクション（ExecuteScriptAsync）を担います。これにより、通常のWeb画面遷移や安定したDOM要素へのアクセスを実現します。<br>
 •	CDP の役割: 標準のDOM操作（JSからの click() 等）では反応しない厳格な業務システムや、イベントフックが複雑なSPAに対し、OSレベルに近いネイティブなマウス/キーボードイベントを直接発火させます。<br>
@@ -88,3 +117,80 @@ CSSセレクタを用いた操作（Set-WebTextInput等）は全てiframeを自�
 •	記述例: //button[text()='送信']<br>
 •	自動補正: 内部で自動的に [contains(normalize-space(.), '送信')] に変換され、HTMLソース上の余分な改行や空白による「要素が見つからない」エラーを未然に防ぎます。
 
+
+#### (5) モジュール別 全関数リファレンス（全53関数）
+[Core] 司令塔・ルーティングモジュール
+
+Write-DebugLog	コンソール出力とファイル出力（世代管理対応）を行うロギング機能。
+New-EngineException	[ERROR]プレフィックスでVBAへ返す例外文字列をフォーマット生成。
+Get-ActiveWebView	現在アクティブなタブのWebView2インスタンスを取得。
+Set-ActiveTab	タブIDを直接指定してアクティブタブを切り替え（前面化）。
+List-Tabs	起動中の全タブ情報（ID、URL、タイトル）をJSONで取得。
+Switch-Tab	タブIDによる切り替え。CDPの再接続処理も包含。
+Switch-TabByTitle	タイトルの部分一致検索によるタブ切り替え。
+Wait-Condition	UIフリーズを防止しつつ、指定条件がTrueになるまで待機（汎用）。
+Invoke-WebScript	JS実行のルーティング。CDPが有効ならCDP、失敗時はNativeへフォールバック。
+Set-EngineConfig	実行時のエンジン設定（要素ハイライトのON/OFF等）を動的に変更。
+
+[Init] ブラウザ初期化モジュール
+
+Clear-WebCache	UDFのキャッシュ、Cookie、LocalStorage等を非同期で完全削除。
+
+[Native] ネイティブ通信モジュール
+
+Invoke-WebView2NativeScript	ExecuteScriptAsync を使用したJS実行。JSONアンエスケープとリトライ機構を内包。
+
+[CDP] 高速通信モジュール (WebSocket)
+
+Connect-CdpSession	/json エンドポイントからTargetIdを探査し、WebSocketセッションを確立。
+Invoke-CdpCommand	JSON-RPCメッセージの送受信。タイムアウトと自動再接続を管理。
+Invoke-CdpScript	CDP経由でのJS評価(Runtime.evaluate)。戻り値のJSONデコードを含む。
+Invoke-CdpNativeClick	CDPを使用し、OSレベルのマウスダウン/アップイベントを座標指定でエミュレート。
+Set-CdpNativeTextInput	CDPを使用し、キーボード入力をOSレベルでエミュレート（SPA対策）。
+
+[Action] Web標準操作モジュール
+
+Invoke-WebNavigation	指定URLへのページ遷移を実行。
+Wait-WebPageLoad	DOMの readyState=complete を全iframe含めて再帰的に待機。
+Wait-WebDocumentReady	画面全体の読み込みステータス完了を待機。
+Wait-WebUrlContains	現在のURLに指定文字列が含まれるまで待機。
+Wait-WebTitleContains	ページタイトルに指定文字列が含まれるまで待機。
+Wait-WebElement	指定要素がDOM上に出現し、かつ画面上に可視化されるまで待機。
+Wait-WebElementInFrame	指定したiframe内の要素が出現・可視化されるまで待機。
+Invoke-WebClickInFrame	指定したiframe内の要素をスクロールしてクリック。
+Wait-WebElementInvisible	指定要素が非表示になる、またはDOMから消滅するまで待機。
+Wait-WebScreenUnlock	業務システム特有のローディングマスク（透過レイヤー）の解除を待機。
+Invoke-WebClick	多段iframeを透過的に探索し、対象要素をクリック。
+Set-WebTextInput	テキストボックスに値を入力し、input/changeイベントを発火。
+Select-WebDropdown	ドロップダウン（select）の指定値を選択し、changeイベントを発火。
+Set-WebCheckbox	チェックボックスの状態（True/False）を判定し、差異があれば切り替え。
+Get-WebText	要素のinnerTextまたはvalueを取得。
+Get-WebUrl / Title	現在のURL、およびページタイトルを取得。
+Enable-SilentDownload	DLダイアログを抑制し、指定フォルダ・ファイル名での裏側ダウンロードを有効化。
+Wait-FileDownload	.crdownloadの消失および排他ロック解除を確認し、DL完了を待機。
+
+[XPath] XPath特殊操作モジュール
+
+Normalize-XPath	XPathの表記揺れ（改行・空白）を自動補正する内部関数。
+Wait-WebXPathElement	XPath指定で要素の可視化を待機。デバッグ時は赤枠ハイライトを実行。
+Wait-WebXPathElementDisappear	XPath要素の非表示・消滅を待機。
+Invoke-WebXPathClick	XPath要素に対し、hover/mousedown/up等の一連のマウスイベントを完全エミュレート。
+Set-WebXPathTextInput	XPath要素へフォーカスし、テキスト入力と各種イベント発火を実行。
+Get-WebXPathText	XPath要素のタグを判別し、適切なテキスト（valueまたはinnerText）を取得。
+
+[UIA] デスクトップ操作モジュール
+
+Switch-AppWindow	Win32APIを用いて指定した外部ウィンドウを最前面へ引き上げ。
+Invoke-UiaAction	UIAutomationを用い、バックグラウンドパターンまたは物理キー送信でOS要素を操作。
+Invoke-UiaSafeSaveAs	「名前を付けて保存」ダイアログを捕捉し、クリップボード経由でパスを入力・保存。
+
+[Debug] デバッグ・証跡モジュール
+
+Export-WebHtml	クロスオリジンを考慮し、全iframeを含むHTMLスナップショットを保存。
+Export-WebScreenshot	CDP、またはネイティブAPIへフォールバックして画面のPNGスクショを保存。
+Export-WebTableToCsv	テーブル要素を解析。人間用CSVと、画像名抽出等を含むVBA取込用配列文字列を生成。
+Export-WebElementsToCsv	画面内の操作可能要素（input, a, button等）の属性を総ざらいしてCSV化。
+Export-WebFrameTreeToCsv	多段iframeのネスト構造をツリー形式で解析しCSV化。
+Export-WindowScreenshot	Win32API/System.Drawingを使用し、ブラウザの枠を含むウィンドウ全体のスクショを保存。
+Export-WindowHierarchyToCsv	OS上で起動している全プロセスのハンドルとタイトル一覧をCSV出力。
+Write-DebugTextFile	任意の文字列をデバッグ用テキストファイルへ追記保存。
