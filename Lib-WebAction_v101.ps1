@@ -403,9 +403,10 @@ function Invoke-WebClick {
     # 多段iframeの再帰探索
     $js = @"
         $global:ENGINE_JS_UTILS
+        var selector = '$selectorEscaped';
         var found = utilFindInFrames(window, function(win) {
             try {
-                var el = win.document.querySelector('$selectorEscaped');
+                var el = win.document.querySelector('$selector');
                 if (el) {
                     el.scrollIntoView({block: 'center', inline: 'center'});
                     el.click();
@@ -536,6 +537,7 @@ function Set-WebCheckbox {
                     return true;
                 }
             } catch(e) {}
+            return null;            
         });
         return found === true; 
 "@
