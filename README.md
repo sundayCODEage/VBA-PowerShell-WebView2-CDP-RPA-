@@ -25,6 +25,8 @@ Lib-WebDebug_v101.ps1 （HTML/CSV保存・スクショ・デバッグメモ）<b
 ● システムアーキテクチャとハイブリッド連携<br>
 
 •この汎用RPA操作エンジンは、主コードはVBAで パラメータをJSON形式（VBA-JSON-2.3.1ライブラリを利用）で 操作指示を受けます。<br>
+... テストコードを確認してください。（概要VBA（クラスモジュール、標準モジュール） /RPAエンジンの開発テストコード)<br>
+
 •Microsoft EdgeのレンダリングコアであるWebView2（Chromiumベース）をスタンドアロンのデスクトップUI（WinForms）に埋め込み、
 「Native（JSインジェクション）」と「CDP（WebSocket経由のデバッガ制御）」の2つの通信経路を状況に応じて切り替えるハイブリッドアーキテクチャを採用した。<br>
 •WebView2 (Native) の役割: DOMレンダリング、セッション管理、UI表示、および標準のJSインジェクション（ExecuteScriptAsync）を担う。
