@@ -1,17 +1,18 @@
 この(汎用RPA操作エンジン)開発コード（の目標）
 
-財務会計システム等に見られる複雑なDOM構造、多段iframe、セキュリティ制約を突破し、高速かつ安全に自動化制御を行う汎用RPA操作エンジン。(目指しましたが、)
+財務会計システム等に見られる複雑なDOM構造、多段iframe、セキュリティ制約を突破し、高速かつ安全に自動化制御を行う汎用RPA操作エンジン。(目指しました)<br>
+Shadow DOM対応(_v201) を追加しました。テストコードは、QIIRA:【VBA×PowerShell】多段iframeとShadow DOMを透過する探索アルゴリズム
 
 （私は、powershellなどは殆ど判らない中でのスタート、ほぼAIさんの力です（主にGEMINI） ただ、無料利用での開発はコードが大きくなり限界を感じます。
 汎用RPAとした事で、テストはしたつもりですが利用していないコードも多く検証・改修はお願いします。）
 
 ● バージョンは　PowerShell 5.1<br>
-Ps_Engine_Core_v101.ps1 （司令塔・ルーター・共通操作）/ _v201.ps1(Shadow DOM対応）<br>
+Ps_Engine_Core_v101.ps1 （司令塔・ルーター・共通操作）/ **_v201.ps1(Shadow DOM対応）**<br>
 以下は、ドットソースで読み込む。<br>
 Lib-WebView2_Init_v101.ps1 （ブラウザ画面起動）<br>
 Lib-WebView2_Native_v101.ps1 （ネイティブ通信）<br>
 Lib-WebCDP_v101.ps1 （WebSocket・CDP高速通信）<br>
-Lib-WebAction_v101.ps1 （Web標準操作）/ _v201.ps1(Shadow DOM対応）<br>
+Lib-WebAction_v101.ps1 （Web標準操作）/ **_v201.ps1(Shadow DOM対応）**<br>
 Lib-DesktopUIA_v101.ps1 （デスクトップ操作・UIA) <br>
 Lib-WebXPath_v101.ps1 （XPathによる特殊要素操作）<br>
 Lib-WebDebug_v101.ps1 （HTML/CSV保存・スクショ・デバッグメモ）<br>
