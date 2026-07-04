@@ -1,0 +1,357 @@
+RPAエンジンのテストには、「the-internet」サイトを利用させていただきました。
+●●●-interneで基礎的な、コードテストとしていますが、業務システムでは不安定なコードも有ると思います。
+* Wait-WebScreenUnlock は、別途RpaSandboxを作成してテストしました
+* (サイレントダウンロードが一部不安定かも、一応SLEEPを入れいています
+**************************************************
+
+Option Explicit
+
+' --- 高精度タイマー用 API宣言 ---
+Private Declare PtrSafe Function QueryPerformanceCounter Lib "kernel32" (lpPerformanceCount As Currency) As Long
+Private Declare PtrSafe Function QueryPerformanceFrequency Lib "kernel32" (lpFrequency As Currency) As Long
+    Dim freq As Currency
+    Dim startTime As Currency: Dim endTime As Currency: Dim elapsedTimeMs As Double
+
+' --- その他API宣言 ---
+Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+
+' --- エンジンパス等の定数定義 ---
+Private Const PS_ENGINE_LIB As String = "\Ps_Engine_Core_v101.ps1"
+    Dim rpaEngine As PS_Engine
+
+' ------------------------------------------------------------------------------
+'   RPAエンジン 総合テスト
+' ------------------------------------------------------------------------------
+Sub Run_ComprehensiveTest()
+    Dim ENGINE_PATH As String
+    Dim sessionId As String
+    Dim result As String
+
+    Dim rawData As String
+    Dim rows() As String
+    Dim cols() As String
+    Dim i As Integer
+
+    ' --- 実行環境の初期化 ---
+    ENGINE_PATH = ThisWorkbook.Path & PS_ENGINE_LIB
+    sessionId = "SESSION_" & Format(Now, "yyyyMMdd_HHmmss")
+    Set rpaEngine = New PS_Engine
+    
+    Debug.Print "=== 総合テスト開始: " & sessionId & " ==="
+    Dim useCdpPort As Integer ' 通信モード (0: 標準, 9222等: CDP)
+    ' 全APIをテストするためCDPモード(9222)で起動
+    useCdpPort = 0
+    useCdpPort = 9222
+    If Not rpaEngine.StartEngine(sessionId, ENGINE_PATH, useCdpPort, True) Then
+        MsgBox "エンジンの起動に失敗しました。", vbCritical
+        Exit Sub
+    End If
+    
+    On Error GoTo ErrorHandler
+    ' ==========================================================================
+    ' Part 1: エンジン設定とキャッシュ操作
+    ' ==========================================================================
+    Debug.Print "--- Part 1: エンジン設定 ---"
+    rpaEngine.RunAction "Set-EngineConfig", CreateParams("EnableHighlight", True)
+    rpaEngine.RunAction "Write-DebugTextFile", CreateParams("Text", "総合テスト開始", "FileName", "TestMemo.txt")
+    rpaEngine.RunAction "Clear-WebCache", CreateParams("Mode", "All")
+
+    ' ==========================================================================
+    ' Part 2: ナビゲーションと取得系
+    ' ==========================================================================
+    Debug.Print "--- Part 2: ナビゲーションと取得系 ---"
+    rpaEngine.RunAction "Invoke-WebNavigation", CreateParams("Url", "https://●●●-internet.herokuapp.com/login")
+    rpaEngine.RunAction "Wait-WebPageLoad"
+    rpaEngine.RunAction "Wait-WebDocumentReady", CreateParams("TimeoutSec", 10)
+    
+    result = rpaEngine.RunAction("Get-WebUrl")
+    Debug.Print "  > URL: " & result
+    result = rpaEngine.RunAction("Get-WebTitle")
+    Debug.Print "  > Title: " & result
+    
+    rpaEngine.RunAction "Wait-WebUrlContains", CreateParams("Substring", "login")
+    rpaEngine.RunAction "Wait-WebTitleContains", CreateParams("Substring", "The Internet")
+
+    ' ==========================================================================
+    ' Part 3: CSSセレクタによる標準DOM操作
+    ' ==========================================================================
+    Debug.Print "--- Part 3: 標準フォーム操作 (CSS) ---"
+    rpaEngine.RunAction "Wait-WebElement", CreateParams("Selector", "#username")
+    rpaEngine.RunAction "Set-WebTextInput", CreateParams("Selector", "#username", "Value", "tomsmith")
+    
+    result = rpaEngine.RunAction("Get-WebText", CreateParams("Selector", "h2"))
+    Debug.Print "  > H2 Text: " & result
+    
+    rpaEngine.RunAction "Invoke-WebClick", CreateParams("Selector", "button[type='submit']")
+    rpaEngine.RunAction "Wait-WebElementInvisible", CreateParams("Selector", "#username")
+
+    ' ==========================================================================
+    ' Part 4: XPathによる要素操作
+    ' ==========================================================================
+    Debug.Print "--- Part 4: XPath操作 ---"
+    rpaEngine.RunAction "Invoke-WebNavigation", CreateParams("Url", "https://●●●-internet.herokuapp.com/login")
+    rpaEngine.RunAction "Wait-WebPageLoad"
+    
+    rpaEngine.RunAction "Wait-WebXPathElement", CreateParams("XPath", "//input[@id='password']")
+    rpaEngine.RunAction "Set-WebXPathTextInput", CreateParams("XPath", "//input[@id='password']", "Value", "SuperSecretPassword!")
+    
+    result = rpaEngine.RunAction("Get-WebXPathText", CreateParams("XPath", "//input[@id='password']"))
+    Debug.Print "  > XPath GetText: " & result
+    
+    rpaEngine.RunAction "Invoke-WebXPathClick", CreateParams("XPath", "//button[@type='submit']")
+    rpaEngine.RunAction "Wait-WebXPathElementDisappear", CreateParams("XPath", "//input[@id='password']", "TimeoutSec", 5)
+
+    ' ==========================================================================
+    ' Part 5: ドロップダウン・チェックボックス
+    ' ==========================================================================
+    Debug.Print "--- Part 5: ドロップダウン・チェックボックス ---"
+    rpaEngine.RunAction "Invoke-WebNavigation", CreateParams("Url", "https://●●●-internet.herokuapp.com/checkboxes")
+    rpaEngine.RunAction "Wait-WebPageLoad"
+    rpaEngine.RunAction "Set-WebCheckbox", CreateParams("Selector", "form#checkboxes input[type='checkbox']:nth-child(1)", "State", True)
+
+    rpaEngine.RunAction "Invoke-WebNavigation", CreateParams("Url", "https://●●●-internet.herokuapp.com/dropdown")
+    rpaEngine.RunAction "Wait-WebPageLoad"
+    rpaEngine.RunAction "Select-WebDropdown", CreateParams("Selector", "#dropdown", "Value", "2")
+
+    ' ==========================================================================
+    ' Part 6: JSネイティブ実行およびCDPネイティブ操作
+    ' ==========================================================================
+    If useCdpPort > 0 Then
+        Debug.Print "--- Part 6: JSネイティブ & CDP操作 ---"
+        result = rpaEngine.RunAction("Invoke-WebView2NativeScript", CreateParams("Js", "return navigator.userAgent;"))
+        Debug.Print "  > NativeScript UserAgent: " & Left(result, 50) & "..."
+    
+        result = rpaEngine.RunAction("Invoke-CdpScript", CreateParams("Js", "return document.title;"))
+        ' CDP直打ちコマンド (例: ブラウザバージョンの取得)
+        result = rpaEngine.RunAction("Invoke-CdpCommand", CreateParams("Method", "Browser.getVersion"))
+        ' CDPネイティブ入力・クリック
+        rpaEngine.RunAction "Invoke-WebNavigation", CreateParams("Url", "https://ja.wikipedia.org/")
+        rpaEngine.RunAction "Wait-WebPageLoad"
+        rpaEngine.RunAction "Set-CdpNativeTextInput", CreateParams("Selector", "#searchInput", "Value", "RPA")
+        rpaEngine.RunAction "Invoke-CdpNativeClick", CreateParams("Selector", "#searchform button")
+        rpaEngine.RunAction "Wait-WebPageLoad"
+    End If
+
+    ' ==========================================================================
+    ' Part 7: iframeとタブ(Window)管理
+    ' ==========================================================================
+    Debug.Print "--- Part 7: iframe と タブ管理 ---"
+    rpaEngine.RunAction "Invoke-WebNavigation", CreateParams("Url", "https://●●●-internet.herokuapp.com/iframe")
+    rpaEngine.RunAction "Wait-WebPageLoad"
+    rpaEngine.RunAction "Wait-WebElementInFrame", CreateParams("FrameSelector", "#mce_0_ifr", "ElementSelector", "body#tinymce")
+    rpaEngine.RunAction "Invoke-WebClickInFrame", CreateParams("FrameSelector", "#mce_0_ifr", "ElementSelector", "body#tinymce")
+
+    result = rpaEngine.RunAction("List-Tabs")
+    Debug.Print "  > Tabs: " & Left(result, 50) & "..."
+    
+    ' 現在のタブを再アクティブ化してテスト
+    rpaEngine.RunAction "Set-ActiveTab", CreateParams("TabId", "P01")
+    rpaEngine.RunAction "Switch-Tab", CreateParams("TabId", "P01")
+    rpaEngine.RunAction "Switch-TabByTitle", CreateParams("TitleSubstring", "The Internet")
+
+    ' ==========================================================================
+    ' Part 8: エクスポート・証跡保存・テーブル解析
+    ' ==========================================================================
+    Debug.Print "--- Part 8: 証跡出力・テーブル解析 ---"
+    rpaEngine.RunAction "Invoke-WebNavigation", CreateParams("Url", "https://●●●-internet.herokuapp.com/tables")
+    rpaEngine.RunAction "Wait-WebPageLoad"
+    rpaEngine.RunAction "Wait-WebElement", CreateParams("Selector", "table#table1")
+    
+    ' (TABLE)データを出力しない（指定方法: "FileName"を指定しない）
+    rawData = rpaEngine.RunAction("Export-WebTableToCsv", CreateParams("Selector", "table#table1", "FileName", "Test_WebTable.csv"))
+    
+    ' 取得したデータの配列化処理 (テスト2のロジック)
+    If rawData <> "" Then
+        rows = Split(rawData, "<R>")
+        Debug.Print "  > 配列サイズ(行数): " & UBound(rows) + 1
+        For i = 0 To UBound(rows)
+            cols = Split(rows(i), "<T>")
+            If UBound(cols) >= 0 Then
+                Debug.Print "    行" & (i + 1) & " の A列: [" & cols(0) & "]"
+            End If
+        Next i
+    End If
+
+    ' 各種証跡ファイルの生成
+    rpaEngine.RunAction "Export-WebHtml", CreateParams("Prefix", "Test_WebHtml")
+    rpaEngine.RunAction "Export-WebScreenshot", CreateParams("Prefix", "Test_WebScreenshot")
+    rpaEngine.RunAction "Export-WebElementsToCsv", CreateParams("FileName", "Test_WebElements.csv")
+    rpaEngine.RunAction "Export-WebFrameTreeToCsv", CreateParams("FileName", "Test_WebFrameTree.csv")
+    rpaEngine.RunAction "Export-WindowScreenshot", CreateParams("Prefix", "Test_WindowScreenshot")
+    rpaEngine.RunAction "Export-WindowHierarchyToCsv", CreateParams("FileName", "Test_WindowHierarchy.csv")
+
+    ' エラーハンドリングを通常のフェイルセーフモードに戻す
+    On Error GoTo ErrorHandler
+    ' ==========================================================================
+    ' Part 10: UIA(デスクトップ操作) の正常系テスト (メモ帳を使用)
+    ' ==========================================================================
+    Debug.Print "--- Part 10: UIA総合アクションテスト (メモ帳) ---"
+    
+    Dim saveFilePath As String
+    saveFilePath = ThisWorkbook.Path & "\UIA_SaveTest.txt"
+    
+    ' 事前にテスト用の保存先ファイルが存在すれば削除
+    If Dir(saveFilePath) <> "" Then
+        Kill saveFilePath
+    End If
+    
+    Dim ws As Object
+    Set ws = CreateObject("WScript.Shell")
+    Dim actionResult As String ' GetText/GetValue の結果受け取り用
+    
+    ' 1. メモ帳の起動とフォーカス確保
+    Shell "notepad.exe", vbNormalFocus
+    Sleep 1000 ' 起動待機
+    
+    On Error Resume Next
+    rpaEngine.RunAction "Switch-AppWindow", CreateParams("Name", "メモ")
+    If Err.Number <> 0 Then
+        Err.Clear
+        rpaEngine.RunAction "Switch-AppWindow", CreateParams("Name", "Notepad")
+    End If
+    On Error GoTo ErrorHandler
+    Sleep 500
+    
+    ' テキスト入力して「名前を付けて保存」を呼び出し
+    ws.SendKeys "RPA UIA Full Action Test", True
+    Sleep 500
+    ws.SendKeys "^s", True
+    Sleep 1000
+    
+    ' [Test 1] GetText テスト: キャンセルボタンの名前を取得する
+    Debug.Print "  >> Test 1: GetText"
+    actionResult = rpaEngine.RunAction("Invoke-UiaAction", CreateParams("Action", "GetText", "Name", "キャンセル", "TimeoutSec", 5))
+    Debug.Print "     Result: " & actionResult
+    Sleep 500
+
+    ' [Test 2] Input (Patternモード) テスト: ファイル名入力欄に文字を流し込む
+    Debug.Print "  >> Test 2: Input (Pattern Mode)"
+    rpaEngine.RunAction "Invoke-UiaAction", CreateParams("Action", "Input", "Name", "*", "AutomationId", "1001", "Value", "PatternInput.txt", "Mode", "Pattern", "TimeoutSec", 5)
+    Sleep 500
+
+    ' [Test 3] GetValue テスト: 入力したファイル名を取得して確認する
+    Debug.Print "  >> Test 3: GetValue"
+    actionResult = rpaEngine.RunAction("Invoke-UiaAction", CreateParams("Action", "GetValue", "Name", "*", "AutomationId", "1001", "TimeoutSec", 5))
+    Debug.Print "     Result: " & actionResult
+    Sleep 500
+
+    ' [Test 4] Input (Safeモード) テスト: 物理キーでファイル名を上書きする
+    Debug.Print "  >> Test 4: Input (Safe Mode)"
+    rpaEngine.RunAction "Invoke-UiaAction", CreateParams("Action", "Input", "Name", "*", "AutomationId", "1001", "Value", "SafeInput.txt", "Mode", "Safe", "TimeoutSec", 5)
+    Sleep 500
+
+    ' [Test 5] Click (Patternモード) テスト: キャンセルボタンを裏側からクリック
+    Debug.Print "  >> Test 5: Click (Pattern Mode)"
+    rpaEngine.RunAction "Invoke-UiaAction", CreateParams("Action", "Click", "Name", "キャンセル", "Mode", "Pattern", "TimeoutSec", 5)
+    Sleep 1000 ' ダイアログが閉じるのを待つ
+    
+    ' [Test 6] Click (Safeモード) テスト: 再度ダイアログを開き、物理クリック
+    Debug.Print "  >> Test 6: Click (Safe Mode)"
+    ws.SendKeys "^s", True
+    Sleep 1000
+    rpaEngine.RunAction "Invoke-UiaAction", CreateParams("Action", "Click", "Name", "キャンセル", "Mode", "Safe", "TimeoutSec", 5)
+    Sleep 1000 ' ダイアログが閉じるのを待つ
+
+    ' [Test 7] 最終保存処理 (Invoke-UiaSafeSaveAs)
+    Debug.Print "  >> Test 7: Invoke-UiaSafeSaveAs"
+    ws.SendKeys "^s", True
+    Sleep 1000
+    rpaEngine.RunAction "Invoke-UiaSafeSaveAs", CreateParams("FilePath", saveFilePath, "TimeoutSec", 10)
+    
+    ' ==========================================================================
+    ' 終了処理: プロセス直撃によるメモ帳の終了 (taskkill)
+    ' ==========================================================================
+    Debug.Print "  > メモ帳プロセスを強制終了します。"
+    Shell "cmd.exe /c taskkill /F /IM notepad.exe /T", vbHide
+    
+    Set ws = Nothing
+    Debug.Print "  > UIA全アクション総合テスト完了 (保存先: " & saveFilePath & ")"
+
+    ' ==========================================================================
+    ' Part 11: サイレントダウンロードの正常系テスト
+    ' ==========================================================================
+    Debug.Print "--- Part 11: サイレントダウンロードテスト ---"
+    
+    Dim downloadDir As String
+    Dim targetFileName As String
+    Dim fullDownloadPath As String
+    
+    ' 保存先フォルダとファイル名の定義（Excelと同じ階層の RPA_Downloads フォルダ）
+    downloadDir = ThisWorkbook.Path & "\RPA_Downloads"
+    targetFileName = "SilentTest_" & Format(Now, "HHmmss") & ".txt"
+    fullDownloadPath = downloadDir & "\" & targetFileName
+    
+    ' 1. ダウンロードのテストページへ遷移
+    rpaEngine.RunAction "Invoke-WebNavigation", CreateParams("Url", "https://●●●-internet.herokuapp.com/download")
+    rpaEngine.RunAction "Wait-WebPageLoad"
+    
+    ' 2. サイレントダウンロードの有効化（保存先とファイル名を指定）
+    rpaEngine.RunAction "Enable-SilentDownload", CreateParams("DownloadDirectory", downloadDir, "FileName", targetFileName)
+     Sleep 2000   
+    ' 3. ダウンロードリンクをクリック（XPathでリストの一番上の <a> タグを指定）
+    ' ※このクリックにより、ダイアログを出さずにバックグラウンドでダウンロードが開始されます
+    rpaEngine.RunAction "Invoke-WebXPathClick", CreateParams("XPath", "//div[@class='example']/a[1]")
+    
+    ' 4. ダウンロード完了の待機（前回PowerShell側に追加した Wait-FileDownload を呼び出し）
+    result = rpaEngine.RunAction("Wait-FileDownload", CreateParams("FilePath", fullDownloadPath, "TimeoutSec", 30))
+    Debug.Print "  > PS側 完了通知: " & result
+    
+    ' 5. VBA側での最終的な存在確認
+    If Dir(fullDownloadPath) <> "" Then
+        Debug.Print "  > [成功] サイレントダウンロード完了 (" & fullDownloadPath & ")"
+    Else
+        Err.Raise 999, "Test", "ダウンロードされたファイルが見つかりません"
+    End If
+
+    ' ==========================================================================
+    ' Part 9: UIA(デスクトップ操作) と 構造上の例外テスト
+    ' ==========================================================================
+    Debug.Print "--- Part 9: UIA(デスクトップ操作) ---"
+    ' Excel自体を最前面に
+    result = rpaEngine.RunAction("Switch-AppWindow", CreateParams("Name", "Excel"))
+    
+    ' ここからは画面状態によって必ずエラーになるため、On Error Resume Next で通過させます
+    On Error Resume Next
+    
+    ' ※Wait-ConditionはPowerShell内で[scriptblock]を受け取る内部的関数なので、JSONからは実行不可
+    rpaEngine.RunAction "Wait-Condition", CreateParams("TimeoutSec", 1)
+    
+    On Error GoTo ErrorHandler
+
+    ' ==========================================================================
+    Debug.Print "=== 総合テスト完了 ==="
+    MsgBox "関数の呼び出しテストが完了しました！" & vbCrLf & _
+           "Logsフォルダに出力された証跡を確認してください。", vbInformation
+
+CleanUp:
+    If Not rpaEngine Is Nothing Then
+        rpaEngine.CloseEngine
+    End If
+    Set rpaEngine = Nothing
+    Exit Sub
+    
+' ------------------------------------------------------------------
+' 異常系のハンドリング
+' ------------------------------------------------------------------
+ErrorHandler:
+    If Err.Source = "PS_Engine" Then
+        Dim rpaErr As RpaExceptionInfo
+        rpaErr = ParseRpaError(Err.Description)
+        
+        Debug.Print "【実行中エラー】 関数: " & rpaErr.FunctionName & " / 種別: " & rpaErr.ErrorType
+        Debug.Print " メッセージ: " & rpaErr.Message
+        Debug.Print " 詳細(Details): " & rpaErr.Details
+        
+        MsgBox "RPAエンジン実行中にエラーが発生しました。" & vbCrLf & _
+               "関数: " & rpaErr.FunctionName & vbCrLf & _
+               "内容: " & rpaErr.Message, vbCritical, "RPAシステムエラー"
+
+    Else
+        MsgBox "VBAマクロエラー (" & Err.Number & "): " & Err.Description, vbCritical
+    End If
+    
+    On Error Resume Next
+    rpaEngine.RunAction "Export-WebScreenshot", CreateParams("Prefix", "Test_ErrorDump")
+    Resume CleanUp
+End Sub
+
