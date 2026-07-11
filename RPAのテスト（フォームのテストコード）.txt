@@ -1,0 +1,300 @@
+●フォームでのテストコード（多分、動くか？　タスクバーの　powershellアイコンをクリックする必要があるかも）
+
+●標準モジュール
+Option Explicit
+
+' --- その他API宣言 ---
+Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+
+' --- エンジンパス等の定数定義 ---
+Private Const PS_ENGINE_LIB As String = "\Ps_Engine_Core_v202.ps1"
+Public rpaEngine As Ps_Engine
+    Const c_TimeoutSec  As Integer = 30
+    Dim loopCount As Integer
+    
+' ユーザーフォームと通信するためのグローバルフラグ
+Public g_DebugAction As Integer ' (0: 待機中, 1: エクスポート実行, 9: デバッグ終了)
+Public g_DebugNote As String
+
+' ..----------------------------------------------------------------------------
+' --- TEST_Debughelper ---
+Sub TEST_Debughelper()
+    Dim ENGINE_PATH As String
+    Dim sessionId As String
+    Dim result As String
+
+    ' --- 実行環境の初期化 ---
+    ENGINE_PATH = ThisWorkbook.Path & PS_ENGINE_LIB
+    sessionId = "Debug " & Format(Now, "yyyyMMdd_HHmmss")
+    Set rpaEngine = New Ps_Engine
+    
+    Debug.Print "=== 処理開始: " & sessionId & " ==="
+    Dim useCdpPort As Integer ' 通信モード (0: 標準, 9222等: CDP)
+    useCdpPort = 0
+    ' --- エンジンの起動および接続確認 ---
+    If Not rpaEngine.StartEngine(sessionId, ENGINE_PATH, useCdpPort, True) Then
+        MsgBox "エンジンの起動に失敗しました。", vbCritical
+        Exit Sub
+    End If
+    
+    On Error GoTo ErrorHandler
+' ..----------------------------------------------------------------------------
+' --- ▼ P01（画面）
+    ' テストサイト：www.yahoo.co.jp
+    rpaEngine.RunAction "Invoke-WebNavigation", CreateParams("Url", "https://●●●.yah●●.co.jp/")
+  
+    ' エラーを無視して強行突破する（ページロード待機での広告等のタイムアウト）
+    On Error Resume Next
+    rpaEngine.RunAction "Wait-WebPageLoad", CreateParams("TimeoutSec", 15)
+    ' エラーをリセット
+    Err.Clear
+     ' エラー監視を元に戻す
+    On Error GoTo ErrorHandler
+' ..----------------------------------------------------------------------------
+    ' --- モードレス（非同期）でフォームを表示 ---
+    UserForm1.Show vbModeless
+    loopCount = 1
+
+    ' 非同期監視ループ
+    Do
+        If g_DebugAction = 1 Then ' [エクスポート実行] ボタン
+            Debug.Print "--- TEST_Debughelper / loopCount: " & Format(loopCount, "00") & " Note: " & g_DebugNote
+            g_DebugAction = 0 ' フラグをリセット
+            Call Debug_ExportLoop(loopCount)
+            UserForm1.lblStatus.Caption = "T" & Format(loopCount, "00") & " 出力完了。"
+            UserForm1.TextNote = "ｘｘｘ"
+            loopCount = loopCount + 1
+        End If
+        
+        If g_DebugAction = 9 Then ' [デバッグ終了] ボタン
+            Exit Do
+        End If
+        
+        DoEvents
+        ' 大きくすると、文字入力がストレス
+        Sleep 50
+    Loop
+    
+' ..----------------------------------------------------------------------------
+    Debug.Print "--- キャッシュクリア実行 ---"
+    rpaEngine.RunAction "Clear-WebCache", CreateParams("Mode", "CacheOnly")
+    DoEvents
+    rpaEngine.RunAction "Clear-WebCache", CreateParams("Mode", "All")
+    
+' --- メモリ解放 ---
+CleanUp:
+    If Not rpaEngine Is Nothing Then
+        rpaEngine.CloseEngine
+    End If
+    Set rpaEngine = Nothing
+    Exit Sub
+    
+' --- 異常系のハンドリング（エラー捕捉） ---
+ErrorHandler:
+    If Err.Source = "PS_Engine" Then
+        ' 例外情報を格納する構造体（エラー文字列をパース）
+        Dim rpaErr As RpaExceptionInfo
+        rpaErr = ParseRpaError(Err.Description)
+
+        Select Case rpaErr.ErrorType
+            Case "未発見"
+                Debug.Print "【スキップ】要素が見つかりません: " & rpaErr.Details
+                Resume Next
+            Case "Timeout"
+                Debug.Print "【待機超過】画面の応答がありません (" & rpaErr.FunctionName & ")"
+            Case "JSエラー", "ネイティブエラー", "内部エラー"
+                MsgBox "ブラウザ制御内で致命的なエラーが発生しました。" & vbCrLf & _
+                       "関数: " & rpaErr.FunctionName & vbCrLf & _
+                       "内容: " & rpaErr.Message, vbCritical
+            Case Else
+                Debug.Print "【その他エラー】" & rpaErr.RawText
+        End Select
+    Else
+        MsgBox "VBAマクロエラー (" & Err.Number & "): " & Err.Description, vbCritical
+    End If
+    
+    On Error Resume Next
+    MsgBox "*** エラーが発生しました:" & vbCrLf & Err.Description, vbCritical
+    Resume CleanUp
+End Sub
+
+' --- デバック用エクスポート ---_
+Private Sub Debug_ExportLoop(loopCount As Integer)
+    Dim fileName As String
+
+    On Error Resume Next
+    ' 別途、btnExport_Click実行で、btnGetTabs_Clickを起動する
+'xx rpaEngine.RunAction "List-Tabs", CreateParams()
+
+    fileName = "T" & Format(loopCount, "00") & "-" & "WebHtml"
+    rpaEngine.RunAction "Export-WebHtml", CreateParams("Prefix", fileName)
+
+    fileName = "T" & Format(loopCount, "00") & "-" & "WebScreenshot"
+    rpaEngine.RunAction "Export-WebScreenshot", CreateParams("Prefix", fileName)
+    
+    fileName = "T" & Format(loopCount, "00") & "-" & "WebFrameTree.csv"
+    rpaEngine.RunAction "Export-WebFrameTreeToCsv", CreateParams("FileName", fileName)
+    
+    fileName = "T" & Format(loopCount, "00") & "-" & "WebElements.csv"
+    rpaEngine.RunAction "Export-WebElementsToCsv", CreateParams("FileName", fileName)
+    
+'xx fileName = "T" & Format(loopCount, "00") & "-" & "WindowHierarchy.csv"
+'xx rpaEngine.RunAction "Export-WindowHierarchyToCsv", CreateParams("FileName", fileName)
+
+'xx fileName = "T" & Format(loopCount, "00") & "-" & "WindowScreenshot"
+'xx rpaEngine.RunAction "Export-WindowScreenshot", CreateParams("Prefix", fileName)
+    
+    ' エラー状態をリセット
+    On Error GoTo 0
+End Sub
+
+
+●フォーム　名前：UserForm1
+Option Explicit
+
+' --- Windows API宣言（最前面表示用） ---
+Private Declare PtrSafe Function SetWindowPos Lib "user32" (ByVal hwnd As LongPtr, ByVal hWndInsertAfter As LongPtr, ByVal X As Long, ByVal Y As Long, ByVal cx As Long, ByVal cy As Long, ByVal uFlags As Long) As Long
+Private Declare PtrSafe Function FindWindow Lib "user32" Alias "FindWindowA" (ByVal lpClassName As String, ByVal lpWindowName As String) As LongPtr
+    Private Const HWND_TOPMOST As Long = -1
+    Private Const HWND_NOTOPMOST As Long = -2
+    Private Const SWP_NOMOVE As Long = &H2
+    Private Const SWP_NOSIZE As Long = &H1
+    
+' --- その他API宣言 ---
+Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+
+' --- フォーム起動時の処理 ---
+Private Sub UserForm_Initialize()
+    ' Excel本体を最小化して、フォームだけを画面に残す
+    Application.WindowState = xlMinimized
+    ' （これまでの最前面処理）
+    Me.chkTopMost.Value = True
+    Call SetTopMost(True)
+End Sub
+
+' --- フォームを閉じるときの処理 ---
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    ' フォームを閉じたら、Excel本体を元のサイズ（最大化）に戻す
+    Application.WindowState = xlMaximized
+    g_DebugAction = 9
+End Sub
+
+' --- チェックボックスのクリックイベント ---
+Private Sub chkTopMost_Click()
+    Call SetTopMost(Me.chkTopMost.Value)
+End Sub
+
+' --- 最前面/解除を切り替える共通関数 ---
+Private Sub SetTopMost(ByVal isTop As Boolean)
+    Dim hwnd As LongPtr
+    hwnd = FindWindow("ThunderDFrame", Me.Caption)
+    
+    If hwnd <> 0 Then
+        If isTop Then
+            ' 最前面にピン留め
+            Call SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE Or SWP_NOSIZE)
+        Else
+            ' ピン留め解除（裏に回れるようになる）
+            Call SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE Or SWP_NOSIZE)
+        End If
+    End If
+End Sub
+
+' --- btnExport_Click ---
+Private Sub btnExport_Click()
+    MsgBox "エクスポートを実行します", vbInformation
+    Debug.Print "--- btnExport_Click時の、Tabs一覧を表示 ---"
+    Call btnGetTabs_Click
+    
+    g_DebugAction = 1
+    Me.lblStatus.Caption = "出力処理中..."
+    g_DebugNote = Me.TextNote
+    DoEvents
+End Sub
+
+' --- btnClose_Click ---
+Private Sub btnClose_Click()
+    g_DebugAction = 9
+    Unload Me
+End Sub
+
+' --- タブ一覧の取得とリストボックスへの表示 ---（テスト用）
+Private Sub btnGetTabs_Click()
+    Dim resJson As String
+    Dim jsonParsed As Object
+    Dim item As Object
+    
+    Me.lblStatus.Caption = "タブ一覧を取得中..."
+    DoEvents
+
+    resJson = rpaEngine.RunAction("List-Tabs", CreateParams()) ' JSON文字列を受け取る
+    lstTabs.Clear ' リストボックスを初期化 (2列設定: 0列目=Title, 1列目=TabId)
+    lstTabs.ColumnCount = 2
+    lstTabs.ColumnWidths = "150;0" ' 2列目(TabId)は非表示
+    
+    Set jsonParsed = JsonConverter.ParseJson(resJson) ' Collection([ ])で戻る
+    If Not jsonParsed Is Nothing Then
+        For Each item In jsonParsed
+            lstTabs.AddItem item("Title")
+            lstTabs.List(lstTabs.ListCount - 1, 1) = item("TabId")
+        Next item
+        Me.lblStatus.Caption = "タブ取得完了: " & lstTabs.ListCount & " 件"
+    End If
+End Sub
+
+' --- 選択したタブへの切り替えとマスク待機 ---（テスト用）
+Private Sub btnSwitchTab_Click()
+    Dim targetTabId As String
+    Dim targetTitle As String
+    Dim maskXPath As String
+    
+    If lstTabs.ListIndex = -1 Then
+        MsgBox "リストから切り替えたいタブを選択してください。", vbExclamation, "未選択"
+        Exit Sub
+    End If
+    
+    ' 選択された行のデータを取得
+    targetTitle = lstTabs.List(lstTabs.ListIndex, 0)
+    targetTabId = lstTabs.List(lstTabs.ListIndex, 1)
+    Me.lblStatus.Caption = "タブ切替中..."
+    DoEvents
+    ' TabId を使ってフォーカスを切り替える
+    rpaEngine.RunAction "Switch-Tab", CreateParams("TabId", targetTabId)
+    Me.lblStatus.Caption = "マスク解除待機中..."
+    DoEvents
+    ' ロック（マスク）解除を待機
+    rpaEngine.RunAction "Wait-WebScreenUnlock", CreateParams()
+    ' Wait-WebScreenUnlockは汎用待機のため、補足的にSleepする
+    Sleep 2000
+    
+    Me.lblStatus.Caption = "切替完了: " & targetTitle
+    MsgBox "タブの切り替えとマスク待機が完了しました。" & vbCrLf & "次の操作（エクスポート等）が可能です。", vbInformation
+    lstTabs.Clear
+End Sub
+    
+' --- TEST（一時使用） ---
+Private Sub TEST_Button_Click()
+    Dim cssSelector As String
+    Dim txtSelector As String
+    Dim xpath As String
+    
+    On Error Resume Next
+    If Me.TextNote = "ｘｘｘ" Then Exit Sub
+    Debug.Print ">> Button_Click: Get-WebCssSelectorHint" & " ---------"
+    
+    txtSelector = Me.TextNote
+    xpath = "//a[contains(., '" & txtSelector & "')]"
+    cssSelector = rpaEngine.RunAction("Get-WebCssSelectorHint", CreateParams("XPath", xpath))
+
+    Debug.Print ">> Button_Click: Invoke-WebSafeClick" & " ---------"
+    If Err.Number <> 0 Then
+        Debug.Print "「テスト」というリンクはありませんでした。処理をスキップします。"
+        Err.Clear
+    Else
+'xx     Debug.Print "要素を発見しました。クリックを実行します。"
+        rpaEngine.RunAction "Invoke-WebSafeClick", CreateParams("Selector", cssSelector, "TimeoutSec", 10)
+    End If
+    
+    Me.TextNote = "ｘｘｘ"
+    MsgBox "TESTボタンを実行しました。", vbInformation
+End Sub
