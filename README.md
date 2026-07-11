@@ -9,6 +9,20 @@ Shadow DOM対応( _v201) を追加しました。<br>
 
 ● バージョンは　PowerShell 5.1<br>
 Ps_Engine_Core_v101.ps1 （司令塔・ルーター・共通操作）/ *_v201.ps1(Shadow DOM対応）<br>
+<details>
+  <summary>Debug] 最新：Ps_Engine_Core_v202</summary>
+# 常時ロード対象モジュールの定義<br>
+$alwaysLoadLibs = @(<br>
+    "Lib-WebAction_v201.ps1", # Shadow DOM対応<br>
+    "Lib-WebXPath_v101.ps1",<br>
+    "Lib-DesktopUIA_v102.ps1",<br>
+    "Lib-WebDebug_v101.ps1",<br>
+    "Lib-WebSafeAction_v101.ps1",<br>
+    "Lib-WebView2_Init_v101.ps1",<br>
+    "Lib-WebView2_Native_v101.ps1"<br>
+)
+</details>
+
 以下は、ドットソースで読み込む。<br>
 Lib-WebView2_Init_v101.ps1 （ブラウザ画面起動）<br>
 Lib-WebView2_Native_v101.ps1 （ネイティブ通信）<br>
