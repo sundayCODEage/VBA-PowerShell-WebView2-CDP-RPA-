@@ -174,9 +174,6 @@ JavaScriptとPowerShellという異言語間の通信において発生する「
 * **`Write-DebugTextFile`**: 任意の文字列をデバッグ用テキストファイルへ追記保存。
 
 
-
-
-
 ## 現在、READMEの修正中です。
 
 **PowerShell 汎用RPA操作エンジン 開発・運用マニュアル**<br>
@@ -233,75 +230,6 @@ CSSセレクタを用いた操作（Set-WebTextInput等）は全てiframeを自�
 
 •	記述例: //button[text()='送信']<br>
 •	自動補正: 内部で自動的に [contains(normalize-space(.), '送信')] に変換され、HTMLソース上の余分な改行や空白による「要素が見つからない」エラーを未然に防ぎます。
-
-#### (5) モジュール別 全関数リファレンス（全53関数）
-**[Core] 司令塔・ルーティングモジュール<br>**
-Write-DebugLog	コンソール出力とファイル出力（世代管理対応）を行うロギング機能。<br>
-New-EngineException	[ERROR]プレフィックスでVBAへ返す例外文字列をフォーマット生成。<br>
-Get-ActiveWebView	現在アクティブなタブのWebView2インスタンスを取得。<br>
-Set-ActiveTab	タブIDを直接指定してアクティブタブを切り替え（前面化）。<br>
-List-Tabs	起動中の全タブ情報（ID、URL、タイトル）をJSONで取得。<br>
-Switch-Tab	タブIDによる切り替え。CDPの再接続処理も包含。<br>
-Switch-TabByTitle	タイトルの部分一致検索によるタブ切り替え。<br>
-Wait-Condition	UIフリーズを防止しつつ、指定条件がTrueになるまで待機（汎用）。<br>
-Invoke-WebScript	JS実行のルーティング。CDPが有効ならCDP、失敗時はNativeへフォールバック。<br>
-Set-EngineConfig	実行時のエンジン設定（要素ハイライトのON/OFF等）を動的に変更。<br>
-
-**[Init] ブラウザ初期化モジュール<br>**
-Clear-WebCache	UDFのキャッシュ、Cookie、LocalStorage等を非同期で完全削除。
-
-**[Native] ネイティブ通信モジュール<br>**
-Invoke-WebView2NativeScript	ExecuteScriptAsync を使用したJS実行。JSONアンエスケープとリトライ機構を内包。
-
-**[CDP] 高速通信モジュール (WebSocket)<br>**
-Connect-CdpSession	/json エンドポイントからTargetIdを探査し、WebSocketセッションを確立。<br>
-Invoke-CdpCommand	JSON-RPCメッセージの送受信。タイムアウトと自動再接続を管理。<br>
-Invoke-CdpScript	CDP経由でのJS評価(Runtime.evaluate)。戻り値のJSONデコードを含む。<br>
-Invoke-CdpNativeClick	CDPを使用し、OSレベルのマウスダウン/アップイベントを座標指定でエミュレート。<br>
-Set-CdpNativeTextInput	CDPを使用し、キーボード入力をOSレベルでエミュレート（SPA対策）。<br>
-
-**[Action] Web標準操作モジュール<br>**
-Invoke-WebNavigation	指定URLへのページ遷移を実行。<br>
-Wait-WebPageLoad	DOMの readyState=complete を全iframe含めて再帰的に待機。<br>
-Wait-WebDocumentReady	画面全体の読み込みステータス完了を待機。<br>
-Wait-WebUrlContains	現在のURLに指定文字列が含まれるまで待機。<br>
-Wait-WebTitleContains	ページタイトルに指定文字列が含まれるまで待機。<br>
-Wait-WebElement	指定要素がDOM上に出現し、かつ画面上に可視化されるまで待機。<br>
-Wait-WebElementInFrame	指定したiframe内の要素が出現・可視化されるまで待機。<br>
-Invoke-WebClickInFrame	指定したiframe内の要素をスクロールしてクリック。<br>
-Wait-WebElementInvisible	指定要素が非表示になる、またはDOMから消滅するまで待機。<br>
-Wait-WebScreenUnlock	業務システム特有のローディングマスク（透過レイヤー）の解除を待機。<br>
-Invoke-WebClick	多段iframeを透過的に探索し、対象要素をクリック。<br>
-Set-WebTextInput	テキストボックスに値を入力し、input/changeイベントを発火。<br>
-Select-WebDropdown	ドロップダウン（select）の指定値を選択し、changeイベントを発火。<br>
-Set-WebCheckbox	チェックボックスの状態（True/False）を判定し、差異があれば切り替え。<br>
-Get-WebText	要素のinnerTextまたはvalueを取得。<br>
-Get-WebUrl / Title	現在のURL、およびページタイトルを取得。<br>
-Enable-SilentDownload	DLダイアログを抑制し、指定フォルダ・ファイル名での裏側ダウンロードを有効化。<br>
-Wait-FileDownload	.crdownloadの消失および排他ロック解除を確認し、DL完了を待機。<br>
-
-**[XPath] XPath特殊操作モジュール<br>**
-Normalize-XPath	XPathの表記揺れ（改行・空白）を自動補正する内部関数。<br>
-Wait-WebXPathElement	XPath指定で要素の可視化を待機。デバッグ時は赤枠ハイライトを実行。<br>
-Wait-WebXPathElementDisappear	XPath要素の非表示・消滅を待機。<br>
-Invoke-WebXPathClick	XPath要素に対し、hover/mousedown/up等の一連のマウスイベントを完全エミュレート。<br>
-Set-WebXPathTextInput	XPath要素へフォーカスし、テキスト入力と各種イベント発火を実行。<br>
-Get-WebXPathText	XPath要素のタグを判別し、適切なテキスト（valueまたはinnerText）を取得。<br>
-
-**[UIA] デスクトップ操作モジュール<br>**
-Switch-AppWindow	Win32APIを用いて指定した外部ウィンドウを最前面へ引き上げ。<br>
-Invoke-UiaAction	UIAutomationを用い、バックグラウンドパターンまたは物理キー送信でOS要素を操作。<br>
-Invoke-UiaSafeSaveAs	「名前を付けて保存」ダイアログを捕捉し、クリップボード経由でパスを入力・保存。<br>
-
-**[Debug] デバッグ・証跡モジュール<br>**
-Export-WebHtml	クロスオリジンを考慮し、全iframeを含むHTMLスナップショットを保存。<br>
-Export-WebScreenshot	CDP、またはネイティブAPIへフォールバックして画面のPNGスクショを保存。<br>
-Export-WebTableToCsv	テーブル要素を解析。人間用CSVと、画像名抽出等を含むVBA取込用配列文字列を生成。<br>
-Export-WebElementsToCsv	画面内の操作可能要素（input, a, button等）の属性を総ざらいしてCSV化。<br>
-Export-WebFrameTreeToCsv	多段iframeのネスト構造をツリー形式で解析しCSV化。<br>
-Export-WindowScreenshot	Win32API/System.Drawingを使用し、ブラウザの枠を含むウィンドウ全体のスクショを保存。<br>
-Export-WindowHierarchyToCsv	OS上で起動している全プロセスのハンドルとタイトル一覧をCSV出力。<br>
-Write-DebugTextFile	任意の文字列をデバッグ用テキストファイルへ追記保存。<br>
 
 #### (X) 「型統一ラッパー」の検証と今後の適用について
 本エンジンでは、PowerShell（制御側）とJavaScript（ブラウザ側）という異なる言語間の通信において発生する「型の消失」や「文字列化による揺らぎ」を完全に排除するため、「JSONラッパー構造の全面的な基準化」を採用しています。
