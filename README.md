@@ -99,6 +99,84 @@ JavaScriptとPowerShellという異言語間の通信において発生する「
 #### 4 仮想タブ管理と「ゴーストウィンドウ」の完全破棄業務
 システムで多発するポップアップ画面（`window.open`）に対し、別ウィンドウを開かせず、同一フォーム内の「仮想タブ」として捕獲します。さらに、ポップアップが自ら閉じた際は、画面上に透明なUIの死骸（ゴースト）が残らないよう、`.GetNewClosure() `を用いた厳密なガベージコレクションを自動実行し、メモリとUIをクリーンに保ちます。
 
+
+## 📚 PowerShell 汎用RPA操作エンジン 開発・運用マニュアル
+
+本エンジンに実装されている、モジュール別の全関数リファレンスです。
+
+### 🛠️ [Core] 司令塔・ルーティングモジュール
+* **`Write-DebugLog`**: コンソール出力とファイル出力（世代管理対応）を行うロギング機能。
+* **`New-EngineException`**: `[ERROR]`プレフィックスでVBAへ返す例外文字列をフォーマット生成。
+* **`Get-ActiveWebView`**: 現在アクティブなタブのWebView2インスタンスを取得。
+* **`Set-ActiveTab`**: タブIDを直接指定してアクティブタブを切り替え（前面化）。
+* **`List-Tabs`**: 起動中の全タブ情報（ID、URL、タイトル）をJSONで取得。
+* **`Switch-Tab`**: タブIDによる切り替え。CDPの再接続処理も包含。
+* **`Switch-TabByTitle`**: タイトルの部分一致検索によるタブ切り替え。
+* **`Wait-Condition`**: UIフリーズを防止しつつ、指定条件がTrueになるまで待機（汎用）。
+* **`Invoke-WebScript`**: JS実行のルーティング。CDPが有効ならCDP、失敗時はNativeへフォールバック。
+* **`Set-EngineConfig`**: 実行時のエンジン設定（要素ハイライトのON/OFF等）を動的に変更。
+
+### 🚀 [Init] & [Native] ブラウザ初期化・ネイティブ通信
+* **`Clear-WebCache`**: UDFのキャッシュ、Cookie、LocalStorage等を非同期で完全削除。
+* **`Invoke-WebView2NativeScript`**: `ExecuteScriptAsync` を使用したJS実行。JSONアンエスケープとリトライ機構を内包。
+
+### ⚡ [CDP] 高速通信モジュール (WebSocket)
+* **`Connect-CdpSession`**: `/json` エンドポイントからTargetIdを探査し、WebSocketセッションを確立。
+* **`Invoke-CdpCommand`**: JSON-RPCメッセージの送受信。タイムアウトと自動再接続を管理。
+* **`Invoke-CdpScript`**: CDP経由でのJS評価(`Runtime.evaluate`)。戻り値のJSONデコードを含む。
+* **`Invoke-CdpNativeClick`**: CDPを使用し、OSレベルのマウスダウン/アップイベントを座標指定でエミュレート。
+* **`Set-CdpNativeTextInput`**: CDPを使用し、キーボード入力をOSレベルでエミュレート（SPA対策）。
+
+### 🖱️ [Action] Web標準操作モジュール
+* **`Invoke-WebNavigation`**: 指定URLへのページ遷移を実行。
+* **`Wait-WebPageLoad`**: DOMの `readyState=complete` を全iframe含めて再帰的に待機。
+* **`Wait-WebDocumentReady`**: 画面全体の読み込みステータス完了を待機。
+* **`Wait-WebUrlContains` / `Wait-WebTitleContains`**: URLやタイトルに指定文字列が含まれるまで待機。
+* **`Wait-WebElement`**: 指定要素がDOM上に出現し、かつ画面上に可視化されるまで待機。
+* **`Wait-WebElementInFrame`**: 指定したiframe内の要素が出現・可視化されるまで待機。
+* **`Invoke-WebClickInFrame`**: 指定したiframe内の要素をスクロールしてクリック。
+* **`Wait-WebElementInvisible`**: 指定要素が非表示になる、またはDOMから消滅するまで待機。
+* **`Wait-WebScreenUnlock`**: 業務システム特有のローディングマスク（透過レイヤー）の解除を待機。
+* **`Invoke-WebClick`**: 多段iframeを透過的に探索し、対象要素をクリック。
+* **`Set-WebTextInput`**: テキストボックスに値を入力し、`input`/`change`イベントを発火。
+* **`Select-WebDropdown`**: ドロップダウン（select）の指定値を選択し、`change`イベントを発火。
+* **`Set-WebCheckbox`**: チェックボックスの状態（True/False）を判定し、差異があれば切り替え。
+* **`Get-WebText`**: 要素の `innerText` または `value` を取得。
+* **`Get-WebUrl` / `Get-WebTitle`**: 現在のURL、およびページタイトルを取得。
+* **`Enable-SilentDownload`**: DLダイアログを抑制し、指定フォルダ・ファイル名での裏側ダウンロードを有効化。
+* **`Wait-FileDownload`**: `.crdownload` の消失および排他ロック解除を確認し、DL完了を待機。
+
+### 🛡️ [SafeAction] フェイルセーフ・安全クリック（Robust DOM）
+* **`Get-WebCssSelectorHint`**: 曖昧なXPathから、可視状態の要素を厳密に判定し、レイアウト変更に強い一意のCSSセレクタを逆生成する。
+* **`Invoke-WebSafeClick`**: 生成されたCSSセレクタを使用し、スクロールと可視性の最終確認を行った上で、隠し要素の誤爆を防ぎ安全にクリックを実行する。
+
+### 🎯 [XPath] XPath特殊操作モジュール
+* **`Normalize-XPath`**: XPathの表記揺れ（改行・空白）を自動補正する内部関数。
+* **`Wait-WebXPathElement`**: XPath指定で要素の可視化を待機。デバッグ時は赤枠ハイライトを実行。
+* **`Wait-WebXPathElementDisappear`**: XPath要素の非表示・消滅を待機。
+* **`Invoke-WebXPathClick`**: XPath要素に対し、hover/mousedown/up等の一連のマウスイベントを完全エミュレート。
+* **`Set-WebXPathTextInput`**: XPath要素へフォーカスし、テキスト入力と各種イベント発火を実行。
+* **`Get-WebXPathText`**: XPath要素のタグを判別し、適切なテキスト（valueまたはinnerText）を取得。
+
+### 🖥️ [UIA] デスクトップ操作モジュール
+* **`Switch-AppWindow`**: Win32APIを用いて指定した外部ウィンドウを最前面へ引き上げ。
+* **`Invoke-UiaAction`**: UIAutomationを用い、バックグラウンドパターンまたは物理キー送信でOS要素を操作。
+* **`Invoke-UiaSafeSaveAs`**: 「名前を付けて保存」ダイアログを捕捉し、クリップボード経由でパスを入力・保存。
+
+### 🐛 [Debug] デバッグ・証跡モジュール
+* **`Export-WebHtml`**: クロスオリジンを考慮し、全iframeを含むHTMLスナップショットを保存。
+* **`Export-WebScreenshot`**: CDP、またはネイティブAPIへフォールバックして画面のPNGスクショを保存。
+* **`Export-WebTableToCsv`**: テーブル要素を解析し、VBA取込用の配列文字列を含むCSVを生成。
+* **`Export-WebElementsToCsv`**: 画面内の操作可能要素（input, a, button等）の属性を総ざらいしてCSV化。
+* **`Export-WebFrameTreeToCsv`**: 多段iframeのネスト構造をツリー形式で解析しCSV化。
+* **`Export-WindowScreenshot`**: Win32API等を使用し、ブラウザの枠を含むウィンドウ全体のスクショを保存。
+* **`Export-WindowHierarchyToCsv`**: OS上で起動している全プロセスのハンドルとタイトル一覧をCSV出力。
+* **`Write-DebugTextFile`**: 任意の文字列をデバッグ用テキストファイルへ追記保存。
+
+
+
+
+
 ## 現在、READMEの修正中です。
 
 **PowerShell 汎用RPA操作エンジン 開発・運用マニュアル**<br>
