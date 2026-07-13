@@ -74,7 +74,7 @@ WebView2の稼働に必要なDLL（`Microsoft.Web.WebView2.Core.dll` 等）は�
   <summary>（構成）●●RPA実行フォルダの例</summary>
   ├─ Ps_Engine_Core_v●●.ps1<br>
   ├─ Lib-必要モジュール_v●●.ps1<br>
-  ├─ ●●VBA実行モジュール.xlsm<br>
+  ├─ ●●VBA実行ファイル.xlsm<br>
   ├─ [ Libs ]　/ WebView2 DLL 自動セットアップ_R.. による自動セットアップ<br>
   │　　├─ Microsoft.Web.WebView2.Core.dll<br>
   │　　├─ Microsoft.Web.WebView2.WinForms.dll<br>
