@@ -94,8 +94,8 @@ WebView2の稼働に必要なDLL（`Microsoft.Web.WebView2.Core.dll` 等）は�
   <summary>（実行）●●実行ログファイルの例</summary>
 <2026-07-xx 17:41:49> <Info> [System] 情報: Browser/ Width-Height (1536) - (816)<br>
 <2026-07-xx 17:41:49> <Info> [System] 情報: 開発モードスイッチ (True)<br>
-VBA側から指定: If Not rpaEngine.StartEngine(sessionId, ENGINE_PATH, useCdpPort, True) Then<br>
-…<Info> [Engine] 実行: 関数名 | Params: {"パラメータ}　/ false: パラメータを出力しない。<br>
+　VBA側から指定: If Not rpaEngine.StartEngine(sessionId, ENGINE_PATH, useCdpPort, True) Then<br>
+　…<Info> [Engine] 実行: 関数名 | Params: { パラメータ }　/ False: パラメータを出力しない。<br>
 
 <2026-07-xx 17:41:49> <Info> [System] 情報: 通信モードスイッチ (9222)　/ 通信モード (0: 標準, 9222等: CDP)<br>
 <2026-07-xx 17:41:49> <Success> [System] 成功: モジュールをロード (Lib-WebAction_v201.ps1)<br>
@@ -118,8 +118,8 @@ VBA側から指定: If Not rpaEngine.StartEngine(sessionId, ENGINE_PATH, useCdpP
 <2026-07-xx 17:42:08> <Info> [Engine] 実行: Invoke-WebNavigation | Params: {"Url":"http s://●●●challenge.com/"}<br>
 <2026-07-xx 17:42:09> <Info> [Engine] 実行: Wait-WebPageLoad | Params: {}<br>
 <2026-07-xx 17:42:15> <Info> [P01] URL更新: https:// ●●●challenge.com/<br>
-<2026-07-xx 17:42:38> <Info> [Engine] 実行: Set-EngineConfig | Params: {"EnableHighlight":false}　/ 選択ハイライトの切り替え<br>
-<2026-07-xx 17:42:38> <Info> [Set-EngineConfig] 設定変更: EnableHighlight = False<br>
+<2026-07-xx 17:42:38> <Info> [Engine] 実行: Set-EngineConfig | Params: {"EnableHighlight":false}　/ 選択ﾊｲﾗｲﾄの切り替え<br>
+<2026-07-xx 17:42:38> <Info> [Set-EngineConfig] 設定変更: EnableHighlight = False　/ #● コメント漏れ<br>
 <2026-07-xx 17:42:38> <Info> [Engine] 実行: Invoke-WebClick | Params: {"Selector":"button.xxx"}<br>
 ※ 基本的に”エラー情報”以外は返さない。<br>
 </details>
