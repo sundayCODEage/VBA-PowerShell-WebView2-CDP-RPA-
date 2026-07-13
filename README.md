@@ -52,7 +52,11 @@ VBAを司令塔とし、PowerShell 5.1経由でMicrosoft Edgeのレンダリン�
 
 ### 📁 構成モジュール一覧（ドットソース読み込み）
 エンジンは以下のスクリプト群で構成され、用途に合わせて動的にロードされます。<br>
-WebView2の稼働に必要なDLL（`Microsoft.Web.WebView2.Core.dll` 等）は、同梱のツール **「WebView2 DLL 自動セットアップ_R..」** を実行することで自動でダウンロードされ、**`Libs`** フォルダへ格納されます。（ときどき最新バージョンの確認は必要です。）
+WebView2の稼働に必要なDLL（`Microsoft.Web.WebView2.Core.dll` 等）は、同梱のツール 「WebView2 DLL 自動セットアップ_R..」 を実行することで自動で3つのDLLがダウンロードされ、`Libs` フォルダへ格納されます。（ときどき最新バージョンの確認は必要です。）<br>
+* Microsoft.Web.WebView2.Core.dll (基本コア)
+* Microsoft.Web.WebView2.WinForms.dll (UI表示用)
+* WebView2Loader.dll (PC内のEdgeランタイム本体と接続する重要ファイル。PowerShellから直接ロードはされません)
+　<br><br>
 
 | モジュール名 | 役割・機能 |
 | :--- | :--- |
@@ -121,7 +125,7 @@ VBA側から指定: If Not rpaEngine.StartEngine(sessionId, ENGINE_PATH, useCdpP
 ※ 基本的に”エラー情報”以外は返さない。<br>
 </details>
 
-### 📁 VBA側の構成モジュール
+ ### 📁 VBA側の構成モジュール
 この汎用RPA操作エンジンは、VBAを司令塔として機能します。PowerShellへの操作指示は、パラメータをJSON形式に変換して送信します（`VBA-JSON-2.3.1` ライブラリを利用）。
 具体的な使い方は、同梱のテストコード **`概要VBA（クラスモジュール、標準モジュール）`** は必須<br>
 `RPAのテスト（Challenge サイト）` / `RPAのテスト（フォームのテストコード）` / `RPAエンジンの開発テストコード）` を参考にしてください。
