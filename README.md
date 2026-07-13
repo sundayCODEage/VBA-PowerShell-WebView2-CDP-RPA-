@@ -52,7 +52,7 @@ VBAを司令塔とし、PowerShell 5.1経由でMicrosoft Edgeのレンダリン�
 
 ### 📁 構成モジュール一覧（ドットソース読み込み）
 エンジンは以下のスクリプト群で構成され、用途に合わせて動的にロードされます。<br>
-WebView2の稼働に必要なDLL（`Microsoft.Web.WebView2.Core.dll` 等）は、同梱のツール **「WebView2 DLL 自動セットアップ_R●●」** を実行することで自動でダウンロードされ、**`Libs`** フォルダへ格納されます。（ときどき最新バージョンの確認は必要です。）
+WebView2の稼働に必要なDLL（`Microsoft.Web.WebView2.Core.dll` 等）は、同梱のツール **「WebView2 DLL 自動セットアップ_R..」** を実行することで自動でダウンロードされ、**`Libs`** フォルダへ格納されます。（ときどき最新バージョンの確認は必要です。）
 
 | モジュール名 | 役割・機能 |
 | :--- | :--- |
@@ -68,16 +68,57 @@ WebView2の稼働に必要なDLL（`Microsoft.Web.WebView2.Core.dll` 等）は�
 
 ● バージョンは　PowerShell 5.1<br>
 <details>
-  <summary>常時ロード対象モジュールの定義</summary>
-$alwaysLoadLibs = @(<br>
-    "Lib-WebAction_v201.ps1",<br>
-    "Lib-WebXPath_v101.ps1",<br>
-    "Lib-DesktopUIA_v102.ps1",<br>
-    "Lib-WebDebug_v101.ps1",<br>
-    "Lib-WebSafeAction_v101.ps1",<br>
-    "Lib-WebView2_Init_v101.ps1",<br>
-    "Lib-WebView2_Native_v101.ps1"<br>
-)
+  <summary>（構成）●●RPA実行フォルダの例</summary>
+  ├─ Ps_Engine_Core_v●●.ps1<br>
+  ├─ Lib-必要モジュール_v●●.ps1<br>
+  ├─ ●●VBA実行モジュール.xlsm<br>
+  ├─ [ Libs ]　/ WebView2 DLL 自動セットアップ_R.. による自動セットアップ<br>
+  │　　├─ Microsoft.Web.WebView2.Core.dll<br>
+  │　　├─ Microsoft.Web.WebView2.WinForms.dll<br>
+  │　　└─ WebView2Loader.dll<br>
+  ├─ [ Logs] <br>
+  │　　├─ [ SESSION_yyyymmdd_ hhmm ] <br>
+  │　　│　　├─ Engine_SystemLog.txt　/ 実行ログファイル<br>
+  │　　│　　└─ （デバックファイル.xxx）<br>
+  │　　└─　作成上限は5回に制限中<br>
+  └─ [ UserData ]　/ （自動作成）<br>
+  　　　└─ [ EBWebView ]<br>
+  　　　　　　├─ セッションデータやキャッシュ、Cookieを管理<br>
+  　　　　　　　（独立したユーザーデータフォルダ（UDF）を生成）<br>
+</details>
+
+<details>
+  <summary>（実行）●●実行ログファイルの例</summary>
+<2026-07-xx 17:41:49> <Info> [System] 情報: Browser/ Width-Height (1536) - (816)<br>
+<2026-07-xx 17:41:49> <Info> [System] 情報: 開発モードスイッチ (True)<br>
+VBA側から指定: If Not rpaEngine.StartEngine(sessionId, ENGINE_PATH, useCdpPort, True) Then<br>
+…<Info> [Engine] 実行: 関数名 | Params: {"パラメータ}　/ false: パラメータを出力しない。<br>
+
+<2026-07-xx 17:41:49> <Info> [System] 情報: 通信モードスイッチ (9222)　/ 通信モード (0: 標準, 9222等: CDP)<br>
+<2026-07-xx 17:41:49> <Success> [System] 成功: モジュールをロード (Lib-WebAction_v201.ps1)<br>
+<2026-07-xx 17:41:49> <Success> [System] 成功: モジュールをロード (Lib-WebXPath_v101.ps1)<br>
+<2026-07-xx 17:41:50> <Success> [System] 成功: モジュールをロード (Lib-DesktopUIA_v102.ps1)<br>
+<2026-07-xx 17:41:51> <Success> [System] 成功: モジュールをロード (Lib-WebDebug_v101.ps1)<br>
+<2026-07-xx 17:41:51> <Success> [System] 成功: モジュールをロード (Lib-WebSafeAction_v101.ps1)<br>
+<2026-07-xx 17:41:51> <Info> [System] 開始: ブラウザシステムの初期化 ...<br>
+<2026-07-xx 17:41:51> <Success> [System] 成功: DLLロード (Microsoft.Web.WebView2.Core.dll Version: 1.0.4022.49)<br>
+<2026-07-xx 17:41:51> <Success> [System] 成功: DLLロード (Microsoft.Web.WebView2.WinForms.dll Version: 1.0.4022.49)<br>
+<2026-07-xx 17:41:54> <Info> [System] 起動モード: CDP有効 (Port: 9222)<br>
+<2026-07-xx 17:41:55> <Success> [System] 成功: WebView2エンジン初期化完了<br>
+<2026-07-xx 17:41:56> <Info> [System] 情報: 接続先ランタイム (Version: 150.0.4078.65)<br>
+<2026-07-xx 17:41:56> <Success> [System] 成功: モジュールをロード (Lib-WebView2_Init_v101.ps1)<br>
+<2026-07-xx 17:41:56> <Success> [System] 成功: モジュールをロード (Lib-WebView2_Native_v101.ps1)<br>
+<2026-07-xx 17:41:56> <Success> [System] 成功: モジュールをロード (Lib-WebCDP_v101.ps1)<br>
+<2026-07-xx 17:42:07> <Info> [System] 情報: CDPポート (9222) の状態 - Listen (127.0.0.1)<br>
+<2026-07-xx 17:42:08> <Info> [System] 情報: 親プロセス監視開始 (PID: 3036, Name: EXCEL)<br>
+<2026-07-xx 17:42:08> <Success> [System] 成功: エンジン待機状態<br>
+<2026-07-xx 17:42:08> <Info> [Engine] 実行: Invoke-WebNavigation | Params: {"Url":"http s://●●●challenge.com/"}<br>
+<2026-07-xx 17:42:09> <Info> [Engine] 実行: Wait-WebPageLoad | Params: {}<br>
+<2026-07-xx 17:42:15> <Info> [P01] URL更新: https:// ●●●challenge.com/<br>
+<2026-07-xx 17:42:38> <Info> [Engine] 実行: Set-EngineConfig | Params: {"EnableHighlight":false}　/ 選択ハイライトの切り替え<br>
+<2026-07-xx 17:42:38> <Info> [Set-EngineConfig] 設定変更: EnableHighlight = False<br>
+<2026-07-xx 17:42:38> <Info> [Engine] 実行: Invoke-WebClick | Params: {"Selector":"button.xxx"}<br>
+※ 基本的に”エラー情報”以外は返さない。<br>
 </details>
 
 ### 📁 VBA側の構成モジュール
