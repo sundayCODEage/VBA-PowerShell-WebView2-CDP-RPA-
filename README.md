@@ -68,6 +68,9 @@ WebView2の稼働に必要なDLL（`Microsoft.Web.WebView2.Core.dll` 等）は�
 | `Lib-WebXPath_v101.ps1` | XPathによる特殊要素操作・自動補正 |
 | `Lib-WebDebug_v101.ps1` | HTML/CSV保存、多段iframeツリー解析、スクショ等の開発支援機能 |
 
+（Lib-DesktopUIA_v103(Invoke-DesktopCenterClick)/ Lib-WebAction_v202(Invoke-WebFetchDownload) を追加しています。<br>
+もしも、利用される時はPs_Engine_Core_v202 の # 常時ロード対象モジュールの定義　$alwaysLoadLibs = @(、、、 を修正してください。）
+
 <details>
   <summary>（構成）●●RPA実行フォルダの例</summary>
   ├─ Ps_Engine_Core_v●●.ps1<br>
@@ -219,6 +222,7 @@ return JSON.stringify({
 * **`Get-WebUrl` / `Get-WebTitle`**: 現在のURL、およびページタイトルを取得。
 * **`Enable-SilentDownload`**: DLダイアログを抑制し、指定フォルダ・ファイル名での裏側ダウンロードを有効化。
 * **`Wait-FileDownload`**: `.crdownload` の消失および排他ロック解除を確認し、DL完了を待機。
+* **`Invoke-WebFetchDownload`**: `Fetch APIを利用した裏側でのサイレントダウンロード発火。
 
 ### 🛡️ [SafeAction] フェイルセーフ・安全クリック（Robust DOM）
 * **`Get-WebCssSelectorHint`**: 曖昧なXPathから、可視状態の要素を厳密に判定し、レイアウト変更に強い一意のCSSセレクタを逆生成する。
@@ -237,6 +241,7 @@ return JSON.stringify({
 * **`Invoke-UiaAction`**: UIAutomationを用い、バックグラウンドパターンまたは物理キー送信でOS要素を操作。
 * **`Invoke-UiaSafeSaveAs`**: 「名前を付けて保存」ダイアログを捕捉し、クリップボード経由でパスを入力・保存。
 * **`Invoke-DesktopSendKeys`**: 対象のウィンドウへ物理キー（SendKeys）を送信。
+* **`Invoke-DesktopCenterClick`**: アクティブウィンドウの中央を物理クリックする。
 
 ### 🐛 [Debug] デバッグ・証跡モジュール
 * **`Export-WebHtml`**: クロスオリジンを考慮し、全iframeを含むHTMLスナップショットを保存。
@@ -249,7 +254,7 @@ return JSON.stringify({
 * **`Write-DebugTextFile`**: 任意の文字列をデバッグ用テキストファイルへ追記保存。
 
 
-## 現在、READMEの修正中です。
+### 現在、READMEの修正中です。
 
 **PowerShell 汎用RPA操作エンジン 開発・運用マニュアル**<br>
 (ほぼ正しい　AI作成)
