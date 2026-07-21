@@ -252,8 +252,8 @@ return JSON.stringify({
 * **`Write-DebugTextFile`**: 任意の文字列をデバッグ用テキストファイルへ追記保存。
 
 
-**マニュアル** 汎用RPA操作エンジン 内部開発・運用仕様書
-QIITA
-【VBA×PowerShell】多段iframeとShadow DOMを透過する探索アルゴリズム
-【VBA×WebView2】脱IE！（はじめの一歩）、レスポンシブWebの非表示メニューを賢くクリック
-【VBA × WebView2】脱IE! 「Edge内蔵PDFビューア」からPDFをダウンロードする
+**マニュアル** 汎用RPA操作エンジン 内部開発・運用仕様書<br>
+QIITA<br>
+【VBA×PowerShell】多段iframeとShadow DOMを透過する探索アルゴリズム<br>
+【VBA×WebView2】脱IE！（はじめの一歩）、レスポンシブWebの非表示メニューを賢くクリック<br>
+【VBA × WebView2】脱IE! 「Edge内蔵PDFビューア」からPDFをダウンロードする<br>
