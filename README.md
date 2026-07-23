@@ -66,9 +66,6 @@ WebView2の稼働に必要なDLL（`Microsoft.Web.WebView2.Core.dll` 等）は�
 | `Lib-WebXPath_v101.ps1` | XPathによる特殊要素操作・自動補正 |
 | `Lib-WebDebug_v101.ps1` | HTML/CSV保存、多段iframeツリー解析、スクショ等の開発支援機能 |
 
-（Lib-DesktopUIA_v103(Invoke-DesktopCenterClick)/ Lib-WebAction_v202(Invoke-WebFetchDownload) を追加しています。<br>
-もしも、利用される時はPs_Engine_Core_v202 の # 常時ロード対象モジュールの定義　$alwaysLoadLibs = @(、、、 を修正してください。）
-
 <details>
   <summary>（構成）●●RPA実行フォルダの例</summary>
   ├─ Ps_Engine_Core_v●●.ps1<br>
