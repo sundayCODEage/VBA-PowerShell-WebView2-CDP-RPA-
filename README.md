@@ -56,13 +56,13 @@ WebView2の稼働に必要なDLL（`Microsoft.Web.WebView2.Core.dll` 等）は�
 
 | モジュール名 | 役割・機能 |
 | :--- | :--- |
-| **`Ps_Engine_Core_v202.ps1`** | **司令塔・ルーター・共通操作（Shadow DOM対応版）** |
+| **`Ps_Engine_Core_v203.ps1`** | **司令塔・ルーター・共通操作（Shadow DOM対応版）** |
 | `Lib-WebView2_Init_v101.ps1` | ブラウザ画面（WinForms）の初期化と起動 |
 | `Lib-WebView2_Native_v101.ps1` | ネイティブ通信（ExecuteScriptAsync等） |
 | `Lib-WebCDP_v101.ps1` | WebSocketによるCDP高速通信・OSレベル操作エミュレート |
-| `Lib-WebAction_v201.ps1` | Web標準操作（クリック、入力等） + Shadow DOM対応 |
+| `Lib-WebAction_v203.ps1` | Web標準操作（クリック、入力等） + Shadow DOM対応 |
 | `Lib-WebSafeAction_v101.ps1` | 曖昧な指定から一意のCSSを逆生成し、非表示罠を回避する安全クリック（Robust DOM Utilities） |
-| `Lib-DesktopUIA_v102.ps1` | デスクトップ操作（UIA） |
+| `Lib-DesktopUIA_v103.ps1` | デスクトップ操作（UIA） |
 | `Lib-WebXPath_v101.ps1` | XPathによる特殊要素操作・自動補正 |
 | `Lib-WebDebug_v101.ps1` | HTML/CSV保存、多段iframeツリー解析、スクショ等の開発支援機能 |
 
@@ -220,6 +220,7 @@ return JSON.stringify({
 * **`Get-WebUrl` / `Get-WebTitle`**: 現在のURL、およびページタイトルを取得。
 * **`Enable-SilentDownload`**: DLダイアログを抑制し、指定フォルダ・ファイル名での裏側ダウンロードを有効化。
 * **`Wait-FileDownload`**: `.crdownload` の消失および排他ロック解除を確認し、DL完了を待機。
+* **`Get-WebEmbedPdfUrl`**: `埋め込みPDF(embed)の絶対URLを安全に取得。
 * **`Invoke-WebFetchDownload`**: `Fetch APIを利用した裏側でのサイレントダウンロード発火。
 
 ### 🛡️ [SafeAction] フェイルセーフ・安全クリック（Robust DOM）
@@ -251,9 +252,30 @@ return JSON.stringify({
 * **`Export-WindowHierarchyToCsv`**: OS上で起動している全プロセスのハンドルとタイトル一覧をCSV出力。
 * **`Write-DebugTextFile`**: 任意の文字列をデバッグ用テキストファイルへ追記保存。
 
-
+<br>
+<br>
 **マニュアル：** `汎用RPA操作エンジン 内部開発・運用仕様書`<br>
 QIITA<br>
 【VBA×PowerShell】多段iframeとShadow DOMを透過する探索アルゴリズム<br>
 【VBA×WebView2】脱IE！（はじめの一歩）、レスポンシブWebの非表示メニューを賢くクリック<br>
 【VBA × WebView2】脱IE! 「Edge内蔵PDFビューア」からPDFをダウンロードする<br>
+
+<br>
+<br>
+/// 2026/07/23 ///
+誰も教えてくれない（コード需要が無いので仕方ない。自己満足の世界です。）のでコッソリ修正しています。<br>
+１　ルール: 【1. 変数およびパラメータの基本命名規則】のローカル変数: camelCase（キャメルケース）で、New-EngineException 関数内の、<br>
+Ps_Engine_Core_v203.ps1 : $Message = $Message -replace "`r`n|`n|`r", " "　、$Details = $Details -replace "`r`n|`n|`r", " | "<br>
+を $messageCleaned　、$detailsCleaned<br>
+
+２　ルール: 【2. 時間・タイムアウト系の命名規則（厳格化）】<br>
+Lib-WebAction_v203.ps1 : Wait-FileDownload（[int]$TimeoutSec = 30）<br>
+Lib-DesktopUIA_v103.ps1 : Invoke-UiaSafeSaveAs（[int]$TimeoutSec = 10）<br>
+を、[int]$TimeoutSec = $global:CONFIG.DefaultTimeoutSec<br>
+
+追加：Lib-WebAction_v203.ps1<br>
+--- 埋め込みPDF(embed)の絶対URLを安全に取得 ---<br>
+function Get-WebEmbedPdfUrl {<br>
+
+
+
