@@ -1,4 +1,4 @@
-#### 移動しました。　2026/08/02　（https://github.com/sundayCODEage/RPA-Hybrid-Engine）
+#### 移動しました。　2026/08/02　（sundayCODEage/RPA-Hybrid-Engine）
 
 #### 概要と開発の背景
 本プロジェクトは、業務システム等に見られる**複雑なDOM構造、多段iframe、セキュリティ制約を突破し、高速かつ安全に自動化制御を行う汎用RPA操作エンジン**です。<br>
